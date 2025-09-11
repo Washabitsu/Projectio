@@ -172,13 +172,14 @@ namespace Projectio.Controllers
                 {
                     if (username == null)
                         return NotFound("Username not found!");
-                    user = _context.Users.FirstOrDefault(u => u.UserName == username);
+                    user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == username);
                 }
 
                 if (user == null)
                     return NotFound("User not found!");
 
                 _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
                 return Ok("User has been deleted!");
             }
             catch (Exception ex)
