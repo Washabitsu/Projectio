@@ -34,7 +34,7 @@ namespace Projectio.Controllers
 
         [AllowAnonymous]
         [HttpPost]
-        public async Task<object> Authenticate(LoginDto dto)
+        public async Task<ActionResult> Authenticate(LoginDto dto)
         {
             try
             {
@@ -42,10 +42,9 @@ namespace Projectio.Controllers
                 if (user == null)
                     return NotFound();
 
-                List<string> roles = _userManager.GetRolesAsync(user).Result.ToList();
+                var roles = (await _userManager.GetRolesAsync(user)).ToList();
 
                 var result =  await _userManager.CheckPasswordAsync(user, dto.Password);
-
 
                 if (result)
                 {
@@ -55,11 +54,11 @@ namespace Projectio.Controllers
                         claims.Add(new Claim(ClaimTypes.Role, role));
                     }
                     var token = await _jwt.GetJwtToken(dto.Username, claims);
-                    return new
+                    return Ok(new
                     {
                         token = new JwtSecurityTokenHandler().WriteToken(token),
                         expires = token.ValidTo
-                    };
+                    });
                 }
                 return Unauthorized("You are not authorized!");
             }
