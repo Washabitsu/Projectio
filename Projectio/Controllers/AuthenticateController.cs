@@ -44,9 +44,10 @@ namespace Projectio.Controllers
 
                 List<string> roles = _userManager.GetRolesAsync(user).Result.ToList();
 
+                var result =  await _userManager.CheckPasswordAsync(user, dto.Password);
 
-                bool verified = BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash);
-                if (verified)
+
+                if (result)
                 {
                     var claims = new List<Claim>();
                     foreach (var role in roles)
