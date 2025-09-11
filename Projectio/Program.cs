@@ -18,15 +18,12 @@ using Projectio.Migrations;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("DeployDatabase");
-if (builder.Environment.IsDevelopment())
-{
-    connectionString = builder.Configuration.GetConnectionString("WebApiDatabase");
-}
+
+var connectionString = builder.Configuration.GetConnectionString("connectionString");
+
 builder.Services.AddDbContext<ApplicationDbContext>(x => x.UseSqlServer(connectionString));
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen((options) =>
 {
@@ -44,6 +41,7 @@ builder.Services.AddSingleton<IJWTConfiguration>((jwt) =>
 {
     return builder.Configuration.GetSection("JWT_settings").Get<JWTConfiguration>();
 });
+
 builder.Services.AddScoped<IJWT, JWT>();
 builder.Services.AddScoped<IMapperWrapper, MapperWrapper>();
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()

@@ -67,14 +67,14 @@ namespace Projectio.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Post([FromBody] UserInDTO value)
         {
-            var pass = BCrypt.Net.BCrypt.HashPassword(value.Password);
 
             var user = new ApplicationUser()
             {
                 UserName = value.Username,
-                PasswordHash = pass,
                 Email = value.Email,
             };
+
+           
             try
             {
                 IdentityRole new_role = null;
@@ -88,12 +88,13 @@ namespace Projectio.Controllers
                 }
 
 
-                await _context.AddAsync(user);
-                await _context.SaveChangesAsync();
+                var result = await _userManager.CreateAsync(user, value.Password);
+                if (!result.Succeeded)
+                    return BadRequest(result.Errors);
+
                 if (new_role != null)
-                {
                     await _userManager.AddToRoleAsync(user, new_role.Name);
-                }
+                
 
                 return Ok("The user has been created succefully");
             }
@@ -129,6 +130,15 @@ namespace Projectio.Controllers
                 return NotFound("User not found!");
 
             user.UpdateUser(value);
+
+            if (!string.IsNullOrEmpty(value.Password))
+            {
+                if (string.IsNullOrEmpty(value.CurrentPassword))
+                    return BadRequest("Current password is required");
+
+                var passwordResult = await _userManager.ChangePasswordAsync(user, value.CurrentPassword, value.Password);
+            }
+
             if (value.RoleId != null)
             {
                 var new_role = await _context.Roles.FirstAsync(r => r.Id == value.RoleId);

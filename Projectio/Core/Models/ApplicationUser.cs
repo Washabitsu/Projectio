@@ -8,8 +8,7 @@ namespace Projectio.Core.Models
 
         public void UpdateUser(UserInDTO dato)
         {
-            if (dato.Password != null)
-                this.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dato.Password);
+          
             if (dato.PhoneNumber != null)
                 this.PhoneNumber = dato.PhoneNumber;
             if (dato.TwoFactorEnabled != null)

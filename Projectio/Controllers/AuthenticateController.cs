@@ -52,10 +52,6 @@ namespace Projectio.Controllers
                     foreach (var role in roles)
                     {
                         claims.Add(new Claim(ClaimTypes.Role, role));
-
-                        // these also work - and reduce token size
-                        // claims.Add(new Claim("roles", role.Name));
-                        // claims.Add(new Claim("role", role.Name));
                     }
                     var token = await _jwt.GetJwtToken(dto.Username, claims);
                     return new
