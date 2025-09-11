@@ -35,18 +35,16 @@ namespace Projectio.Migrations
         {
             if (userManager.FindByNameAsync("admin").Result == null)
             {
-                var pass = BCrypt.Net.BCrypt.HashPassword("DefaultPass");
                 ApplicationUser user = new ApplicationUser()
                 {
                     UserName = "admin",
                     Email = "dimitris.argyropoulos@outlook.com",
-                    PasswordHash = pass,
                     NormalizedUserName = "ADMIN",
                     EmailConfirmed = true
                 };
 
                 IdentityResult result = userManager.CreateAsync
-                (user).Result;
+                (user, "DefaultPass").Result;
 
                 if (result.Succeeded)
                 {

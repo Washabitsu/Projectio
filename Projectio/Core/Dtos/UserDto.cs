@@ -14,7 +14,6 @@ namespace Projectio.Core.Dtos
         public bool? TwoFactorEnabled { get; set; }
     }
 
-
     public class UserOutDTO : UserDto
     {
         public string? Role { get; set; }
@@ -23,6 +22,7 @@ namespace Projectio.Core.Dtos
     public class UserInDTO : UserDto
     {
         public string? Password { get; set; }
+        public string? CurrentPassword { get; set; }
         public string? RoleId { get; set; }
         public string? Role { get; set; }
     }
