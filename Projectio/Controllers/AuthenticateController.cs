@@ -12,6 +12,8 @@ using Projectio.Helpers;
 using Projectio.Persistence;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using AutoMapper;
+
 
 namespace Projectio.Controllers
 {
@@ -22,12 +24,10 @@ namespace Projectio.Controllers
         private readonly IJWT _jwt;
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        private IMapperWrapper _mapperWrapper { get; set; }
 
-        public AuthenticateController(IJWT jwt, ApplicationDbContext context, IMapperWrapper mapperWrapper, UserManager<ApplicationUser> userManager)
+        public AuthenticateController(IJWT jwt, ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _jwt = jwt;
-            _mapperWrapper = mapperWrapper;
             _context = context;
             _userManager = userManager;
         }
@@ -53,11 +53,12 @@ namespace Projectio.Controllers
                     {
                         claims.Add(new Claim(ClaimTypes.Role, role));
                     }
+
+                   
                     var token = await _jwt.GetJwtToken(dto.Username, claims);
                     return Ok(new
                     {
-                        token = new JwtSecurityTokenHandler().WriteToken(token),
-                        expires = token.ValidTo
+                        token = token
                     });
                 }
                 return Unauthorized("You are not authorized!");
