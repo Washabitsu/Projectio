@@ -1,20 +1,25 @@
-using Microsoft.Extensions.Configuration;
-using Projectio.Core.Models;
-using Projectio.Persistence;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using System.Runtime.CompilerServices;
-using Projectio.Core.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Projectio.Helpers;
-using Microsoft.AspNetCore.Identity;
 using Projectio.Core.Enums;
+using Projectio.Core.Interfaces;
+using Projectio.Core.Models;
+using Projectio.Helpers;
 using Projectio.Migrations;
+using Projectio.Persistence;
+using Projectio.Security;
+using System;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using AutoMapper;
+using Projectio.Core.Dtos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,7 +48,15 @@ builder.Services.AddSingleton<IJWTConfiguration>((jwt) =>
 });
 
 builder.Services.AddScoped<IJWT, JWT>();
-builder.Services.AddScoped<IMapperWrapper, MapperWrapper>();
+
+
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.CreateMap<ApplicationUser, UserDto>();
+    cfg.CreateMap<ApplicationUser, UserOutDTO>();
+});
+
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
@@ -54,12 +67,22 @@ builder.Services.AddCors();
 var jwtIssuer = builder.Configuration.GetSection("JWT_settings")["Issuer"];
 var jwtAudience = builder.Configuration.GetSection("JWT_settings")["Audience"];
 var jwtSigningKey = builder.Configuration.GetSection("JWT_settings")["SigningKey"];
+var jwtTokenTImeout = builder.Configuration.GetSection("JWT_settings")["TokenTimeoutMinutes"];
+
+
+
+builder.Services.AddSingleton<IJWTProvider>(provider =>
+{
+    return new AppSettingsJwtProvider(jwtSigningKey);
+});
+
 
 builder.Services.AddAuthentication(auth =>
 {
     auth.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     auth.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
+})
+.AddJwtBearer(options =>
 {
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
@@ -69,16 +92,18 @@ builder.Services.AddAuthentication(auth =>
         ValidateAudience = true,
         ValidAudience = jwtAudience,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey))
+        IssuerSigningKey = new AppSettingsJwtProvider(jwtSigningKey).GetPublicKey()
     };
 });
 
 
+
 var app = builder.Build();
 Configure(app);
-app.Configuration.GetSection("myConfiguration");
 
-var test = app.Configuration.GetSection("myConfiguration");
+
+
+
 
 
 // Configure the HTTP request pipeline.
@@ -115,7 +140,7 @@ void Configure(WebApplication host)
 
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-        AppDbContextSeed.SeedData(userManager, roleManager);
+        AppDbContextSeed.SeedData(userManager, roleManager).Wait();
     }
     catch (Exception ex)
     {
