@@ -37,21 +37,19 @@ namespace Projectio.Controllers
             Request.Headers.TryGetValue("Authorization", out var token);
             var username = await _jwt.GetUsernameFJTW(token);
             if (username == null)
-                return NotFound("Username not found!");
+                return Unauthorized("Invalid Credentials!");
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == username);
 
 
             if (user == null)
-                return NotFound("User not found!");
+                return Unauthorized("Invalid Credentials!");
 
             var dto = _mapper.Map<ApplicationUser, UserOutDTO>(user);
-
             var roles = await _userManager.GetRolesAsync(user);
-
-            foreach (var role in roles)
-                dto.Role.Append(role);
             
+            if (roles.Count > 0)
+                dto.Role = roles[0];
 
             return Ok(dto);
         }
