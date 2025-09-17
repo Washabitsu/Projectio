@@ -23,7 +23,6 @@ namespace Projectio.Core.Dtos
     {
         public string? Password { get; set; }
         public string? CurrentPassword { get; set; }
-        public string? RoleId { get; set; }
         public string? Role { get; set; }
     }
 
