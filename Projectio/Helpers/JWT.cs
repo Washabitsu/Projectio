@@ -1,9 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Projectio.Core.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Projectio.Helpers
@@ -13,19 +15,21 @@ namespace Projectio.Helpers
         /* IJWTConfiguration _jwtConfiguration { get; set; }*/
 
         public IJWTConfiguration _jwtConfiguration { get; set; }
-        public JWT(IJWTConfiguration jWTConfiguration)
+        public IJWTProvider _jWTProvider { get; set; }
+
+        public JWT(IJWTConfiguration jWTConfiguration, IJWTProvider jWTProvider)
         {
             _jwtConfiguration = jWTConfiguration;
+            _jWTProvider = jWTProvider;
         }
 
-        public async Task<JwtSecurityToken> GetJwtToken(string username, List<Claim> additionalClaims = null)
+        public async Task<String> GetJwtToken( string username, List<Claim> additionalClaims = null)
         {
             var claims = new[]
             {
             new Claim(JwtRegisteredClaimNames.Sub,username),
             // this guarantees the token is unique
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())};
             if (additionalClaims is object)
             {
                 var claimList = new List<Claim>(claims);
@@ -33,16 +37,24 @@ namespace Projectio.Helpers
                 claims = claimList.ToArray();
             }
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtConfiguration.SigningKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            
+            var rsa = _jWTProvider.GetPrivateKey();
+            var creds = new SigningCredentials(rsa, SecurityAlgorithms.RsaSha256);
 
-            return new JwtSecurityToken(
-                issuer: _jwtConfiguration.Issuer,
-                audience: _jwtConfiguration.Audience,
-                expires: DateTime.UtcNow.Add(TimeSpan.FromMinutes(_jwtConfiguration.TokenTimeoutMinutes)),
-                claims: claims,
-                signingCredentials: creds
-            );
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenDesciption = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(_jwtConfiguration.TokenTimeoutMinutes),
+                Issuer = _jwtConfiguration.Issuer,
+                Audience = _jwtConfiguration.Audience,
+                SigningCredentials = creds
+            };
+
+            var token = tokenHandler.CreateToken(tokenDesciption);
+            var jwt = tokenHandler.WriteToken(token);
+
+            return jwt;
         }
 
         public async Task<string?> GetUsernameFJTW(StringValues bearer_token)
@@ -71,7 +83,7 @@ namespace Projectio.Helpers
                     ValidateAudience = true,
                     ValidAudience = _jwtConfiguration.Audience,
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtConfiguration.SigningKey))
+                    IssuerSigningKey = _jWTProvider.GetPublicKey()
                 }, out SecurityToken validatedToken);
 
                 var jwtToken = (JwtSecurityToken)validatedToken;
