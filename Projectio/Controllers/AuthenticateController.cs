@@ -49,7 +49,11 @@ namespace Projectio.Controllers
                 var result =  await _userManager.CheckPasswordAsync(user, dto.Password);
 
                 if (await _userManager.IsLockedOutAsync(user))
-                    throw new LockedOutException();
+                {
+
+                    return StatusCode(StatusCodes.Status423Locked, "Your account is locked. Please contact support or try again later.");
+                }
+                   
 
                 if (result)
                 {
@@ -57,8 +61,6 @@ namespace Projectio.Controllers
                     foreach (var role in roles)
                         claims.Add(new Claim(ClaimTypes.Role, role));
                     
-
-                   
                     var token = await _jwt.GetJwtToken(user.UserName, claims);
                     return Ok(new
                     {

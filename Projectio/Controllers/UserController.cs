@@ -38,6 +38,9 @@ namespace Projectio.Controllers
         {
             var user = HttpContext.Items["CurrentUser"] as ApplicationUser;
 
+            if (user == null)
+                return NotFound("User not found");
+
             var dto = _mapper.Map<ApplicationUser, UserOutDTO>(user);
             var roles = await _userManager.GetRolesAsync(user);
             
@@ -113,7 +116,6 @@ namespace Projectio.Controllers
                     await _userManager.AddToRoleAsync(user, new_role.Name);
                 }
 
-                _context.Users.Update(user);
                 await _context.SaveChangesAsync();
                 return Ok("User has been updated!");
             }
