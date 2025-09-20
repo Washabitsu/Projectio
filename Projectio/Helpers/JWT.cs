@@ -3,6 +3,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Projectio.Core.Interfaces;
+using Projectio.Exceptions;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -57,81 +58,72 @@ namespace Projectio.Helpers
             return jwt;
         }
 
-        public async Task<string?> GetUsernameFJTW(StringValues bearer_token)
+        public JwtSecurityToken? ValidateTokenFJTW(StringValues bearer_token)
         {
             string token;
             try
             {
                 token = bearer_token[0].Split(' ')[1];
+                if (token == null)
+                    throw new TokenValidationException();
+
+                SecurityToken validatedToken = null;
+                var tokenHandler = new JwtSecurityTokenHandler();
+                try
+                {
+                    tokenHandler.ValidateToken(token, new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidIssuer = _jwtConfiguration.Issuer,
+                        ValidateAudience = true,
+                        ValidAudience = _jwtConfiguration.Audience,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = _jWTProvider.GetPublicKey()
+                    }, out validatedToken);
+                }
+                catch (Exception ex)
+                {
+                    validatedToken = null;
+                }
+                if ( validatedToken is null)
+                    return null;
+                
+                return (JwtSecurityToken)validatedToken;
             }
+   
             catch (Exception ex)
             {
-                token = null;
+                throw new TokenValidationException();
             }
-
-            if (token == null)
-                return null;
-
-
-            var tokenHandler = new JwtSecurityTokenHandler();
+        }
+        public async Task<string?> GetUsernameFJTW(StringValues bearer_token)
+        {
             try
             {
-                tokenHandler.ValidateToken(token, new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuer = _jwtConfiguration.Issuer,
-                    ValidateAudience = true,
-                    ValidAudience = _jwtConfiguration.Audience,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = _jWTProvider.GetPublicKey()
-                }, out SecurityToken validatedToken);
+                var jwtToken = ValidateTokenFJTW(bearer_token);
+                if (jwtToken is null)
+                    return null;
 
-                var jwtToken = (JwtSecurityToken)validatedToken;
                 var userId = jwtToken.Claims.First(x => x.Type == "sub").Value;
+
                 return userId;
             }
-            catch
+            catch (Exception ex )
             {
-                return null;
+               throw new TokenValidationException();
             }
         }
 
         public async Task<string?> GetRoleFJTW(StringValues bearer_token)
         {
-            string token;
-            try
-            {
-                token = bearer_token[0].Split(' ')[1];
-            }
-            catch (Exception ex)
-            {
-                token = null;
-            }
-
-            if (token == null)
-                return null;
-
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            try
-            {
-                tokenHandler.ValidateToken(token, new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuer = _jwtConfiguration.Issuer,
-                    ValidateAudience = true,
-                    ValidAudience = _jwtConfiguration.Audience,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtConfiguration.SigningKey))
-                }, out SecurityToken validatedToken);
-
-                var jwtToken = (JwtSecurityToken)validatedToken;
-                var userId = jwtToken.Claims.First(x => x.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role").Value;
+            try { 
+            var jwtToken = ValidateTokenFJTW(bearer_token);
+            var userId = jwtToken.Claims.First(x => x.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role").Value;
                 return userId;
             }
-            catch
+            catch( Exception ex)
             {
-                return null;
+                throw new TokenValidationException();
             }
         }
     }
