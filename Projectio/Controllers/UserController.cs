@@ -52,6 +52,7 @@ namespace Projectio.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin")]
+        
         public async Task<IActionResult> Post([FromBody] UserInDTO value)
         {
 
@@ -111,7 +112,16 @@ namespace Projectio.Controllers
                 if (value.Role != null)
                 {
                     var new_role = await _roleManager.FindByNameAsync(value.Role);
+
+                    if (new_role == null)
+                        return BadRequest("Role does not exist");
+
                     var existing_roles = await _userManager.GetRolesAsync(user);
+
+                    if (new_role.Name == "Admin" && !existing_roles.Contains("Admin"))
+                        return BadRequest("You cannot assign Admin role");
+
+                    
                     await _userManager.RemoveFromRolesAsync(user, existing_roles);
                     await _userManager.AddToRoleAsync(user, new_role.Name);
                 }

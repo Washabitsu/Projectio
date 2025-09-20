@@ -72,7 +72,7 @@ namespace Projectio.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return Unauthorized("You are not authorized!");
             }
         }
     }
