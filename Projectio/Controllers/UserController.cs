@@ -84,60 +84,59 @@ namespace Projectio.Controllers
         [Authorize]
         public async Task<IActionResult> Put([FromBody] UserInDTO value)
         {
-          
-            ApplicationUser user;
-            var username = User.Identity.Name;
-            user = await _context.Users.FirstOrDefaultAsync(user => user.UserName == username);
 
-            if (user == null)
-                 
-
-            if (!await _userManager.CheckPasswordAsync(user,value.CurrentPassword))
+            try
             {
-                throw new ForbiddenException();
+                ApplicationUser user = HttpContext.Items["CurrentUser"] as ApplicationUser;
+
+                if (user == null)
+                    return NotFound("User not found");
+
+                user.UpdateUser(value);
+
+                if (!string.IsNullOrEmpty(value.Password))
+                {
+                    if (string.IsNullOrEmpty(value.CurrentPassword))
+                        return BadRequest("Current password is required");
+
+                    var passwordResult = await _userManager.ChangePasswordAsync(user, value.CurrentPassword, value.Password);
+
+                    if (!passwordResult.Succeeded)
+                        return BadRequest(passwordResult.Errors);
+                }
+
+                if (value.Role != null)
+                {
+                    var new_role = await _roleManager.FindByNameAsync(value.Role);
+                    var existing_roles = await _userManager.GetRolesAsync(user);
+                    await _userManager.RemoveFromRolesAsync(user, existing_roles);
+                    await _userManager.AddToRoleAsync(user, new_role.Name);
+                }
+
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
+                return Ok("User has been updated!");
             }
-
-            user.UpdateUser(value);
-
-            if (!string.IsNullOrEmpty(value.Password))
+            catch (Exception ex)
             {
-                if (string.IsNullOrEmpty(value.CurrentPassword))
-                    return BadRequest("Current password is required");
-
-                var passwordResult = await _userManager.ChangePasswordAsync(user, value.CurrentPassword, value.Password);
+                return BadRequest(ex.Message);
             }
-
-            if (value.Role != null)
-            {
-                var new_role = await _roleManager.FindByNameAsync(value.Role);
-                var existing_roles = await _userManager.GetRolesAsync(user);
-                await _userManager.RemoveFromRolesAsync(user, existing_roles);
-                await _userManager.AddToRoleAsync(user, new_role.Name);
-            }
-
-            _context.Users.Update(user);
-            await _context.SaveChangesAsync();
-            return Ok("User has been updated!");
         }
 
         [HttpDelete]
+        [Authorize]
         public async Task<IActionResult> Delete()
         {
             try
             {
-                Request.Headers.TryGetValue("Authorization", out var token);
-                ApplicationUser user;
-                var username = await _jwt.GetRoleFJTW(token);
-                user = await _context.Users.FirstOrDefaultAsync(user => user.UserName == username);
+                ApplicationUser user = HttpContext.Items["CurrentUser"] as ApplicationUser; ;
 
-                if (user == null) {
-                    return NotFound("User not found!");
-                }
+                if (user == null)
+                    return NotFound("User not found");
 
                 _context.Users.Remove(user);
 
                 await _context.SaveChangesAsync();
-
                 return Ok("User has been deleted!");
             }
             catch (Exception ex)
