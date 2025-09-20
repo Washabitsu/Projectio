@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Projectio.Core.Dtos;
 using Projectio.Core.Interfaces;
 using Projectio.Core.Models;
+using Projectio.Exceptions;
 using Projectio.Persistence;
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -32,18 +33,10 @@ namespace Projectio.Controllers
 
 
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> Get()
         {
-            Request.Headers.TryGetValue("Authorization", out var token);
-            var username = await _jwt.GetUsernameFJTW(token);
-            if (username == null)
-                return Unauthorized("Invalid Credentials!");
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == username);
-
-
-            if (user == null)
-                return Unauthorized("Invalid Credentials!");
+            var user = HttpContext.Items["CurrentUser"] as ApplicationUser;
 
             var dto = _mapper.Map<ApplicationUser, UserOutDTO>(user);
             var roles = await _userManager.GetRolesAsync(user);
@@ -64,8 +57,6 @@ namespace Projectio.Controllers
                 UserName = value.Username,
                 Email = value.Email,
             };
-
-           
             try
             {
                 IdentityRole new_role = await _roleManager.FindByNameAsync(value.Role);
@@ -90,19 +81,20 @@ namespace Projectio.Controllers
 
 
         [HttpPut]
+        [Authorize]
         public async Task<IActionResult> Put([FromBody] UserInDTO value)
         {
-            Request.Headers.TryGetValue("Authorization", out var token);
+          
             ApplicationUser user;
-            var username = await _jwt.GetRoleFJTW(token);
+            var username = User.Identity.Name;
             user = await _context.Users.FirstOrDefaultAsync(user => user.UserName == username);
 
             if (user == null)
-                return NotFound("User not found!");
+                 
 
             if (!await _userManager.CheckPasswordAsync(user,value.CurrentPassword))
             {
-                return Unauthorized("You are not authorized!");
+                throw new ForbiddenException();
             }
 
             user.UpdateUser(value);

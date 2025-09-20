@@ -13,6 +13,7 @@ using Projectio.Persistence;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using AutoMapper;
+using Projectio.Exceptions;
 
 
 namespace Projectio.Controllers
@@ -39,28 +40,32 @@ namespace Projectio.Controllers
             try
             {
                 ApplicationUser user = await _context.Users.FirstOrDefaultAsync(i => i.UserName == dto.Username);
+
                 if (user == null)
-                    return NotFound();
+                    throw new UnauthorizedAccess();
 
                 var roles = (await _userManager.GetRolesAsync(user)).ToList();
 
                 var result =  await _userManager.CheckPasswordAsync(user, dto.Password);
 
+                if (await _userManager.IsLockedOutAsync(user))
+                    throw new LockedOutException();
+
                 if (result)
                 {
                     var claims = new List<Claim>();
                     foreach (var role in roles)
-                    {
                         claims.Add(new Claim(ClaimTypes.Role, role));
-                    }
+                    
 
                    
-                    var token = await _jwt.GetJwtToken(dto.Username, claims);
+                    var token = await _jwt.GetJwtToken(user.UserName, claims);
                     return Ok(new
                     {
                         token = token
                     });
                 }
+                await _userManager.AccessFailedAsync(user);
                 return Unauthorized("You are not authorized!");
             }
             catch (Exception ex)
