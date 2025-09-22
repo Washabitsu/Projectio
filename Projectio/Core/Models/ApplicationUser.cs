@@ -5,6 +5,9 @@ namespace Projectio.Core.Models
 {
     public class ApplicationUser : IdentityUser
     {
+        
+        public IEnumerable<RefreshToken> RefreshTokens { get; set; }
+
 
         public void UpdateUser(UserInDTO dato)
         {
