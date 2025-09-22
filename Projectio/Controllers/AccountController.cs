@@ -2,19 +2,17 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Projectio.Core.Dtos;
 using Projectio.Core.Interfaces;
 using Projectio.Core.Models;
-using Projectio.Exceptions;
 using Projectio.Persistence;
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
 
 namespace Projectio.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : ControllerBase
+    public class AccountController : ControllerBase
     {
         private IJWT _jwt { get; set; }
         private IMapper _mapper { get; set; }
@@ -22,7 +20,7 @@ namespace Projectio.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
 
         private readonly UserManager<ApplicationUser> _userManager;
-        public UserController(ApplicationDbContext context, IJWT jwt, IMapper mapper, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public AccountController(ApplicationDbContext context, IJWT jwt, IMapper mapper, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _context = context;
             _mapper = mapper;
@@ -30,7 +28,6 @@ namespace Projectio.Controllers
             _userManager = userManager;
             _roleManager = roleManager;
         }
-
 
         [HttpGet]
         [Authorize]
@@ -50,45 +47,13 @@ namespace Projectio.Controllers
             return Ok(dto);
         }
 
-        [HttpPost]
-        [Authorize(Roles = "Admin")]
         
-        public async Task<IActionResult> Post([FromBody] UserInDTO value)
-        {
-
-            var user = new ApplicationUser()
-            {
-                UserName = value.Username,
-                Email = value.Email,
-            };
-            try
-            {
-                IdentityRole new_role = await _roleManager.FindByNameAsync(value.Role);
-    
-              
-                var result = await _userManager.CreateAsync(user, value.Password);
-
-                if (!result.Succeeded)
-                    return BadRequest(result.Errors);
-
-                if (new_role != null)
-                    await _userManager.AddToRoleAsync(user, new_role.Name);
-                
-
-                return Ok("The user has been created succefully");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, "Internal server error");
-            }
-        }
 
 
         [HttpPut]
         [Authorize]
         public async Task<IActionResult> Put([FromBody] UserInDTO value)
         {
-
             try
             {
                 ApplicationUser user = HttpContext.Items["CurrentUser"] as ApplicationUser;
@@ -107,23 +72,6 @@ namespace Projectio.Controllers
 
                     if (!passwordResult.Succeeded)
                         return BadRequest(passwordResult.Errors);
-                }
-
-                if (value.Role != null)
-                {
-                    var new_role = await _roleManager.FindByNameAsync(value.Role);
-
-                    if (new_role == null)
-                        return BadRequest("Role does not exist");
-
-                    var existing_roles = await _userManager.GetRolesAsync(user);
-
-                    if (new_role.Name == "Admin" && !existing_roles.Contains("Admin"))
-                        return BadRequest("You cannot assign Admin role");
-
-                    
-                    await _userManager.RemoveFromRolesAsync(user, existing_roles);
-                    await _userManager.AddToRoleAsync(user, new_role.Name);
                 }
 
                 await _context.SaveChangesAsync();

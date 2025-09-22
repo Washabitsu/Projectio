@@ -46,22 +46,23 @@ namespace Projectio.Controllers
 
                 var roles = (await _userManager.GetRolesAsync(user)).ToList();
 
-                var result =  await _userManager.CheckPasswordAsync(user, dto.Password);
+                var result = await _userManager.CheckPasswordAsync(user, dto.Password);
 
                 if (await _userManager.IsLockedOutAsync(user))
                 {
 
                     return StatusCode(StatusCodes.Status423Locked, "Your account is locked. Please contact support or try again later.");
                 }
-                   
+
 
                 if (result)
                 {
                     var claims = new List<Claim>();
                     foreach (var role in roles)
                         claims.Add(new Claim(ClaimTypes.Role, role));
-                    
+
                     var token = await _jwt.GetJwtToken(user.UserName, claims);
+                    await _userManager.ResetAccessFailedCountAsync(user);
                     return Ok(new
                     {
                         token = token
@@ -72,6 +73,23 @@ namespace Projectio.Controllers
             }
             catch (Exception ex)
             {
+
+                return Unauthorized("You are not authorized!");
+            }
+        }
+    
+
+        [AllowAnonymous]
+        [HttpPost("refresh")]
+        public async Task<ActionResult> RefreshToken(LoginDto dto)
+        {
+            try
+            {
+                return null;
+            }
+            catch (Exception ex)
+            {
+
                 return Unauthorized("You are not authorized!");
             }
         }
