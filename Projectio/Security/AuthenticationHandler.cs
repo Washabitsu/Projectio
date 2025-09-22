@@ -71,12 +71,17 @@ namespace Projectio.Security
                     logEntry = _logFactory.CreateLockedOutLog(Context);
                     return AuthenticateResult.Fail("You have been locked out. Contact Admin!");
                 }
-                   
+                
+                var roles = await _userManager.GetRolesAsync(user);
 
                 var claims = new List<Claim>
                 {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
                     new Claim(ClaimTypes.Name, username)
                 };
+
+                claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+
                 var identity = new ClaimsIdentity(claims, Scheme.Name);
                 var principal = new ClaimsPrincipal(identity);
                 var ticket = new AuthenticationTicket(principal, Scheme.Name);
@@ -86,7 +91,7 @@ namespace Projectio.Security
             }
             catch
             {
-                throw new TokenValidationException();
+                return AuthenticateResult.Fail("Something went wrong");
             }
         }
     }
