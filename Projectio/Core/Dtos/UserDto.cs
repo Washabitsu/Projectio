@@ -23,7 +23,14 @@ namespace Projectio.Core.Dtos
     {
         public string? Password { get; set; }
         public string? CurrentPassword { get; set; }
-        public string? Role { get; set; }
     }
 
+    public class UserRegisterDTO : UserInDTO
+    {
+        [Required]
+        public string? FirstName { get; set; }
+        [Required]
+        public string? LastName { get; set; }
+        public string? Role { get; set; }
+    }
 }
