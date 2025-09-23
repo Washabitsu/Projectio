@@ -2,8 +2,9 @@
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Projectio.Core.Interfaces;
 using Projectio.Exceptions;
+using Projectio.Security.Interfaces.JWT;
+using Projectio.Security.Interfaces.KeyManagement;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -13,18 +14,17 @@ namespace Projectio.Helpers
 {
     public class JWT : IJWT
     {
-        /* IJWTConfiguration _jwtConfiguration { get; set; }*/
 
         public IJWTConfiguration _jwtConfiguration { get; set; }
-        public IJWTProvider _jWTProvider { get; set; }
+        public IEncryptionProvider _encryptionProvider { get; set; }
 
-        public JWT(IJWTConfiguration jWTConfiguration, IJWTProvider jWTProvider)
+        public JWT(IJWTConfiguration jWTConfiguration, IEncryptionProvider encryptionProvider)
         {
             _jwtConfiguration = jWTConfiguration;
-            _jWTProvider = jWTProvider;
+            _encryptionProvider = encryptionProvider;
         }
 
-        public async Task<String> GetJwtToken( string username, List<Claim> additionalClaims = null)
+        public async Task<string> SignJwtToken( string username, List<Claim> additionalClaims = null)
         {
             var claims = new[]
             {
@@ -39,8 +39,8 @@ namespace Projectio.Helpers
             }
 
             
-            var rsa = _jWTProvider.GetPrivateKey();
-            var creds = new SigningCredentials(rsa, SecurityAlgorithms.RsaSha256);
+          
+            var creds = await _encryptionProvider.GetCredentials();
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var tokenDesciption = new SecurityTokenDescriptor
@@ -49,16 +49,20 @@ namespace Projectio.Helpers
                 Expires = DateTime.UtcNow.AddMinutes(_jwtConfiguration.TokenTimeoutMinutes),
                 Issuer = _jwtConfiguration.Issuer,
                 Audience = _jwtConfiguration.Audience,
-                SigningCredentials = creds
+                SigningCredentials = creds,
+                
             };
+
+           
 
             var token = tokenHandler.CreateToken(tokenDesciption);
             var jwt = tokenHandler.WriteToken(token);
+            
 
             return jwt;
         }
 
-        public JwtSecurityToken? ValidateTokenFJTW(StringValues bearer_token)
+        public async Task<ClaimsPrincipal?> ValidateToken(StringValues bearer_token)
         {
             string token;
             try
@@ -68,27 +72,31 @@ namespace Projectio.Helpers
                     throw new TokenValidationException();
 
                 SecurityToken validatedToken = null;
+                ClaimsPrincipal principal = null;
                 var tokenHandler = new JwtSecurityTokenHandler();
                 try
                 {
-                    tokenHandler.ValidateToken(token, new TokenValidationParameters
+                    principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
                     {
+                        ValidateLifetime = true,
                         ValidateIssuer = true,
                         ValidIssuer = _jwtConfiguration.Issuer,
                         ValidateAudience = true,
                         ValidAudience = _jwtConfiguration.Audience,
                         ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = _jWTProvider.GetPublicKey()
+                        RequireExpirationTime = true,
+                        RequireSignedTokens = true,
+                        IssuerSigningKey = await _encryptionProvider.GetPublicKey()
                     }, out validatedToken);
                 }
                 catch (Exception ex)
                 {
-                    validatedToken = null;
+                    principal = null;
                 }
                 if ( validatedToken is null)
                     return null;
-                
-                return (JwtSecurityToken)validatedToken;
+
+                return principal;
             }
    
             catch (Exception ex)
@@ -96,11 +104,11 @@ namespace Projectio.Helpers
                 throw new TokenValidationException();
             }
         }
-        public async Task<string?> GetUsernameFJTW(StringValues bearer_token)
+        public async Task<string?> GetUsernameFromToken(StringValues bearer_token)
         {
             try
             {
-                var jwtToken = ValidateTokenFJTW(bearer_token);
+                var jwtToken = await ValidateToken(bearer_token);
                 if (jwtToken is null)
                     return null;
 
@@ -114,14 +122,17 @@ namespace Projectio.Helpers
             }
         }
 
-        public async Task<string?> GetRoleFJTW(StringValues bearer_token)
+        public async Task<IEnumerable<string?>> GetRolesFromToken(StringValues bearer_token)
         {
-            try { 
-            var jwtToken = ValidateTokenFJTW(bearer_token);
-            var userId = jwtToken.Claims.First(x => x.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role").Value;
-                return userId;
+            try
+            {
+                var jwtToken = await ValidateToken(bearer_token);
+                var roles = jwtToken.Claims
+                    .Where(x => x.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+                    .Select(x => x.Value);
+                return roles;
             }
-            catch( Exception ex)
+            catch (Exception ex)
             {
                 throw new TokenValidationException();
             }
