@@ -11,13 +11,19 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Projectio.Core.Dtos;
 using Projectio.Core.Enums;
-using Projectio.Core.Interfaces;
+using Projectio.Core.Interfaces.Logging;
 using Projectio.Core.Models;
 using Projectio.Helpers;
 using Projectio.Logs;
 using Projectio.Migrations;
 using Projectio.Persistence;
 using Projectio.Security;
+using Projectio.Security.Authorization.Handlers;
+using Projectio.Security.Interfaces.JWT;
+using Projectio.Security.Interfaces.KeyManagement;
+using Projectio.Security.Interfaces.Signing;
+using Projectio.Security.KeyManagement.Algorithms;
+using Projectio.Security.KeyManagement.SKProviders;
 using System;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
@@ -44,6 +50,20 @@ builder.Services.AddSwaggerGen((options) =>
     });
 });
 
+
+var jwtIssuer = builder.Configuration.GetSection("JWT_settings")["Issuer"];
+var jwtAudience = builder.Configuration.GetSection("JWT_settings")["Audience"];
+var jwtSigningKey = builder.Configuration.GetSection("JWT_settings")["SigningKey"];
+var jwtTokenTImeout = builder.Configuration.GetSection("JWT_settings")["TokenTimeoutMinutes"];
+
+
+builder.Services.AddSingleton<IEncryptionProvider>(provider =>
+{
+    var signer = provider.GetRequiredService<ISigner>();
+    return new ASKeyProvider(signer, jwtSigningKey);
+});
+
+
 builder.Services.AddSingleton<IJWTConfiguration>((jwt) =>
 {
     return builder.Configuration.GetSection("JWT_settings").Get<JWTConfiguration>();
@@ -66,12 +86,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
             .AddDefaultTokenProviders();
 
 builder.Services.AddScoped<UserManager<ApplicationUser>>();
-builder.Services.AddCors();
 
-var jwtIssuer = builder.Configuration.GetSection("JWT_settings")["Issuer"];
-var jwtAudience = builder.Configuration.GetSection("JWT_settings")["Audience"];
-var jwtSigningKey = builder.Configuration.GetSection("JWT_settings")["SigningKey"];
-var jwtTokenTImeout = builder.Configuration.GetSection("JWT_settings")["TokenTimeoutMinutes"];
 
 builder.Services.Configure<IdentityOptions>(options =>
 {
@@ -80,10 +95,8 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.Lockout.AllowedForNewUsers = true;
 });
 
-builder.Services.AddSingleton<IJWTProvider>(provider =>
-{
-    return new AppSettingsJwtProvider(jwtSigningKey);
-});
+
+
 
 builder.Services.AddAuthentication(options =>
 {
@@ -94,6 +107,11 @@ builder.Services.AddAuthentication(options =>
     JwtBearerDefaults.AuthenticationScheme,
     options => { }
 );
+
+
+
+builder.Services.AddCors();
+
 
 
 var app = builder.Build();

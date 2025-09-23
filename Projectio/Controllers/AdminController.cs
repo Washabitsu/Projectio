@@ -2,9 +2,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Projectio.Core.Dtos;
-using Projectio.Core.Interfaces;
 using Projectio.Core.Models;
 using Projectio.Persistence;
+using Projectio.Security.Interfaces.JWT;
 
 namespace Projectio.Controllers
 {
@@ -28,10 +28,12 @@ namespace Projectio.Controllers
 
 
         [HttpPost("CreateUser")]
-        [Authorize(Roles = "Admin")]
 
         public async Task<IActionResult> CreateUser([FromBody] UserRegisterDTO value)
         {
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
             if (string.IsNullOrWhiteSpace(value.Password))
                 return BadRequest("Password is required.");
@@ -74,9 +76,8 @@ namespace Projectio.Controllers
 
 
         [HttpPost("UpdateRoles/{userid}")]
-        [Authorize(Roles = "Admin")]
 
-        public async Task<IActionResult> UpdateRole(string userid,[FromBody] RoleINDTO value)
+        public async Task<IActionResult> UpdateRoles(string userid,[FromBody] RoleINDTO value)
         {
 
             if (string.IsNullOrWhiteSpace(userid))

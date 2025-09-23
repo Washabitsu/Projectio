@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Projectio.Core.Dtos;
-using Projectio.Core.Interfaces;
 using Projectio.Core.Models;
 using Projectio.Helpers;
 using Projectio.Persistence;
@@ -14,6 +13,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using AutoMapper;
 using Projectio.Exceptions;
+using Projectio.Security.Interfaces.JWT;
 
 
 namespace Projectio.Controllers
@@ -61,7 +61,7 @@ namespace Projectio.Controllers
                     foreach (var role in roles)
                         claims.Add(new Claim(ClaimTypes.Role, role));
 
-                    var token = await _jwt.GetJwtToken(user.UserName, claims);
+                    var token = await _jwt.SignJwtToken(user.UserName, claims);
                     await _userManager.ResetAccessFailedCountAsync(user);
                     return Ok(new
                     {

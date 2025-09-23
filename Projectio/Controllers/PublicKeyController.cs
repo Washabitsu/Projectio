@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Projectio.Core.Interfaces;
+using Projectio.Security.Interfaces.KeyManagement;
 
 namespace Projectio.Controllers
 {
@@ -13,28 +14,18 @@ namespace Projectio.Controllers
     [Route("api/publickey")]
     public class PublicKeyController : ControllerBase
     {
-        private readonly IJWTProvider _jwtProvider;
+        private readonly IEncryptionProvider _encryptionProvider;
 
-        public PublicKeyController(IJWTProvider jwtProvider)
+        public PublicKeyController(IEncryptionProvider encryptionProvider)
         {
-            _jwtProvider = jwtProvider;
+            _encryptionProvider = encryptionProvider;
         }
 
         [HttpGet]
-        public IActionResult GetJwks()
+        public async Task<IActionResult> GetJwks()
         {
-            var rsaKey = _jwtProvider.GetPublicKey().Rsa;
-            var parameters = rsaKey.ExportParameters(false);
-
             // Build JWKS response
-            var jwk = new
-            {
-                kty = "RSA",
-                n = Base64UrlEncoder.Encode(parameters.Modulus),
-                e = Base64UrlEncoder.Encode(parameters.Exponent),
-                alg = "RS256",
-                use = "sig"
-            };
+            var jwk = await _encryptionProvider.GetJWKS();
 
             var jwks = new { keys = new[] { jwk } };
 
