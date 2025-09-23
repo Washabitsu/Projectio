@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Projectio.Core.Dtos;
-using Projectio.Core.Interfaces;
 using Projectio.Core.Models;
 using Projectio.Persistence;
+using Projectio.Security.Interfaces.JWT;
 
 
 namespace Projectio.Controllers
@@ -56,6 +56,9 @@ namespace Projectio.Controllers
         {
             try
             {
+                 if(!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
                 ApplicationUser user = HttpContext.Items["CurrentUser"] as ApplicationUser;
 
                 if (user == null)
