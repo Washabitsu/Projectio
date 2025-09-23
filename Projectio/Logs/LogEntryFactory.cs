@@ -1,5 +1,5 @@
 ﻿using Microsoft.IdentityModel.Abstractions;
-using Projectio.Core.Interfaces;
+using Projectio.Core.Interfaces.Logging;
 
 namespace Projectio.Logs
 {
