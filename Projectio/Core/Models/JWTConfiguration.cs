@@ -1,4 +1,4 @@
-﻿using Projectio.Core.Interfaces;
+﻿using Projectio.Security.Interfaces.JWT;
 
 namespace Projectio.Core.Models
 {
