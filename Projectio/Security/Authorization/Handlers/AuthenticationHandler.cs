@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
-using Projectio.Core.Interfaces;
 using Projectio.Core.Models;
 using Projectio.Logs;
 using Projectio.Exceptions;
@@ -12,9 +11,11 @@ using System.Diagnostics.Tracing;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.IdentityModel.Abstractions;
+using Projectio.Core.Interfaces.Logging;
+using Projectio.Security.Interfaces.JWT;
 
 
-namespace Projectio.Security
+namespace Projectio.Security.Authorization.Handlers
 {
     public class AuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
@@ -45,9 +46,18 @@ namespace Projectio.Security
                 if (!Request.Headers.TryGetValue("Authorization", out StringValues token) || token == StringValues.Empty)
                     return AuthenticateResult.NoResult();
 
+
+
                 string username;
-            
-                username = await _jwt.GetUsernameFJTW(token);
+
+                var ValidatedToken = await _jwt.ValidateToken(token);
+                if(ValidatedToken == null)
+                {
+                    var jjjj = _logFactory.CreateTokenValidationLog(Context);
+                    return AuthenticateResult.Fail("Invalid Token");
+                }
+
+                username = await _jwt.GetUsernameFromToken(token);
 
                 LogEntry logEntry;
 
