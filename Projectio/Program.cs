@@ -1,38 +1,28 @@
-using AutoMapper;
+using Google.Apis.Auth.AspNetCore3;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.CookiePolicy;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Projectio.Core.Dtos;
-using Projectio.Core.Enums;
-using Projectio.Core.Interfaces.Logging;
 using Projectio.Core.Models;
 using Projectio.Helpers;
-using Projectio.Logs;
 using Projectio.Migrations;
 using Projectio.Persistence;
-using Projectio.Security;
-using Projectio.Security.Authorization.Handlers;
+using Projectio.Security.Authorization.OAuthProvider;
+using Projectio.Security.Authorization.OAuthSetting;
 using Projectio.Security.Interfaces.JWT;
-using Projectio.Security.Interfaces.KeyManagement;
-using Projectio.Security.Interfaces.Signing;
-using Projectio.Security.KeyManagement.Algorithms;
-using Projectio.Security.KeyManagement.SKProviders;
-using System;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
+using Projectio.Security.Interfaces.OAuth;
+using Projectio.Security.Tools;
+using System.IdentityModel.Tokens.Jwt;
+
 
 var builder = WebApplication.CreateBuilder(args);
-
-
-var connectionString = builder.Configuration.GetConnectionString("connectionString");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if(connectionString == null)
+    throw new InvalidOperationException("Connection string is not configured properly. Please check the appsettings.json file.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(x => x.UseSqlServer(connectionString));
 builder.Services.AddControllers();
@@ -51,28 +41,24 @@ builder.Services.AddSwaggerGen((options) =>
 });
 
 
-var jwtIssuer = builder.Configuration.GetSection("JWT_settings")["Issuer"];
-var jwtAudience = builder.Configuration.GetSection("JWT_settings")["Audience"];
-var jwtSigningKey = builder.Configuration.GetSection("JWT_settings")["SigningKey"];
-var jwtTokenTImeout = builder.Configuration.GetSection("JWT_settings")["TokenTimeoutMinutes"];
+builder.Services.Configure<JWTConfiguration>(
+    builder.Configuration.GetSection("JWT_settings"));
+
+var jwtConfig = builder.Configuration.GetSection("Jwt").Get<JWTConfiguration>()
+    ?? throw new InvalidOperationException("Jwt settings are not configured properly.");
+
+builder.Services.AddSingleton<IJWTConfiguration>(jwtConfig);
 
 
-builder.Services.AddSingleton<IEncryptionProvider>(provider =>
-{
-    var signer = provider.GetRequiredService<ISigner>();
-    return new ASKeyProvider(signer, jwtSigningKey);
-});
+var gOAuthSettings = builder.Configuration.GetSection("Google").Get<GoogleSettings>()
+    ?? throw new InvalidOperationException("Google OAuth settings are not configured properly.");
+var keys = typeof(GoogleSettings).GetProperties();
+foreach (var key in keys)
+    if (string.IsNullOrEmpty(key.GetValue(gOAuthSettings)?.ToString()))
+        throw new Exception($"Google OAuth settings are not configured properly. Missing value for {key.Name}.");
 
-
-builder.Services.AddSingleton<IJWTConfiguration>((jwt) =>
-{
-    return builder.Configuration.GetSection("JWT_settings").Get<JWTConfiguration>();
-});
-
-builder.Services.AddSingleton<ILogEntryFactory, LogEntryFactory>();
-
-builder.Services.AddScoped<IJWT, JWT>();
-
+builder.Services.AddSingleton<IGoogleSettings>(gOAuthSettings);
+builder.Services.AddSingleton<IOAuthProvider, GoogleProvider>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
@@ -80,90 +66,111 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.CreateMap<ApplicationUser, UserOutDTO>();
 });
 
-
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
-            .AddEntityFrameworkStores<ApplicationDbContext>()
-            .AddDefaultTokenProviders();
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
 builder.Services.AddScoped<UserManager<ApplicationUser>>();
 
 
+
 builder.Services.Configure<IdentityOptions>(options =>
 {
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5); // or any period you want
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.AllowedForNewUsers = true;
 });
 
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.MinimumSameSitePolicy = SameSiteMode.None;
+    options.HttpOnly = HttpOnlyPolicy.Always;
+    options.Secure = CookieSecurePolicy.SameAsRequest;
+});
 
-
+var isDevelopment = builder.Configuration["IsDevelopment"];
+if(isDevelopment == null)
+    throw new InvalidOperationException("IsDevelopment setting is not configured properly. Check secret variables");
 
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-.AddScheme<AuthenticationSchemeOptions, AuthenticationHandler>(
-    JwtBearerDefaults.AuthenticationScheme,
-    options => { }
-);
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateLifetime = true,
+        ValidateIssuer = true,
+        ValidIssuer = jwtConfig.Issuer,
+        ValidateAudience = true,
+        ValidAudiences = jwtConfig.Audience,
+        ValidateIssuerSigningKey = true,
+        RequireExpirationTime = true,
+        RequireSignedTokens = true,
+        IssuerSigningKey = KeyToolset.GetPublicKey(jwtConfig.SigningKey!),
+        NameClaimType = JwtRegisteredClaimNames.Sub
+    };
+})
+.AddCookie()
+.AddGoogleOpenIdConnect(options =>
+{
+    options.ClientId = gOAuthSettings.ClientId;
+    options.ClientSecret = gOAuthSettings.ClientSecret;
+    options.CallbackPath = gOAuthSettings.RedirectUris[0];
+    options.SignInScheme = IdentityConstants.ExternalScheme;
+    options.SaveTokens = true;
+    options.Scope.Clear();
+    options.Scope.Add("openid");
+    options.Scope.Add("profile");
+    options.Scope.Add("email");
+});
 
 
-
+builder.Services.AddAuthorization();
 builder.Services.AddCors();
-
 
 
 var app = builder.Build();
 
 Configure(app);
 
-
-
-
-
-
-// Configure the HTTP request pipeline.
-/*if (app.Environment.IsDevelopment())
+if(isDevelopment.ToLower() == "true")
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-}*/
-app.UseSwagger();
-app.UseSwaggerUI();
+}
+
+app.UseCookiePolicy();
 
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseMiddleware<Projectio.MiddleWare.ExceptionMiddleware>();
+app.UseCors(x => x.AllowAnyMethod().AllowAnyHeader().SetIsOriginAllowed(origin => true).AllowCredentials());
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseCors(x => x.AllowAnyMethod().AllowAnyHeader().SetIsOriginAllowed(origin => true).AllowCredentials());
 app.MapControllers();
 
 app.Run();
-
 
 void Configure(WebApplication host)
 {
     using var scope = host.Services.CreateScope();
     var services = scope.ServiceProvider;
-
     try
     {
         var dbContext = services.GetRequiredService<ApplicationDbContext>();
-
         if (dbContext.Database.IsSqlServer())
         {
             dbContext.Database.Migrate();
         }
-
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         AppDbContextSeed.SeedData(userManager, roleManager).Wait();
     }
-    catch (Exception ex)
+    catch
     {
         throw;
     }

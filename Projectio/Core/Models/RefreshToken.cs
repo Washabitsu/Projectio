@@ -31,7 +31,6 @@ namespace Projectio.Core.Models
         public DateTimeOffset? Revoked { get; set; }
 
 
-        // Convenience
         public bool IsExpired => DateTimeOffset.UtcNow >= Expires;
         public bool IsRevoked => Revoked.HasValue;
         public bool IsActive => !IsRevoked && !IsExpired;

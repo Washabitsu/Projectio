@@ -1,9 +1,8 @@
 ﻿using Microsoft.IdentityModel.Abstractions;
-using Projectio.Core.Interfaces.Logging;
 
 namespace Projectio.Logs
 {
-    public class LogEntryFactory : ILogEntryFactory
+    public class LogEntryFactory 
     {
         public LogEntry Create(Exception exception)
         {

@@ -5,26 +5,26 @@ using Microsoft.AspNetCore.Mvc;
 using Projectio.Core.Dtos;
 using Projectio.Core.Models;
 using Projectio.Persistence;
-using Projectio.Security.Interfaces.JWT;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 
 namespace Projectio.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [RequireHttps]
     public class AccountController : ControllerBase
     {
-        private IJWT _jwt { get; set; }
         private IMapper _mapper { get; set; }
         private ApplicationDbContext _context { get; set; }
         private readonly RoleManager<IdentityRole> _roleManager;
 
         private readonly UserManager<ApplicationUser> _userManager;
-        public AccountController(ApplicationDbContext context, IJWT jwt, IMapper mapper, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public AccountController(ApplicationDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _context = context;
             _mapper = mapper;
-            _jwt = jwt;
             _userManager = userManager;
             _roleManager = roleManager;
         }
@@ -33,8 +33,11 @@ namespace Projectio.Controllers
         [Authorize]
         public async Task<IActionResult> Get()
         {
-            var user = HttpContext.Items["CurrentUser"] as ApplicationUser;
+            var username = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(username))
+                return Unauthorized("Invalid token");
 
+            var user = await _userManager.FindByNameAsync(username);
             if (user == null)
                 return NotFound("User not found");
 
@@ -47,9 +50,6 @@ namespace Projectio.Controllers
             return Ok(dto);
         }
 
-        
-
-
         [HttpPut]
         [Authorize]
         public async Task<IActionResult> Put([FromBody] UserInDTO value)
@@ -59,8 +59,11 @@ namespace Projectio.Controllers
                  if(!ModelState.IsValid)
                     return BadRequest(ModelState);
 
-                ApplicationUser user = HttpContext.Items["CurrentUser"] as ApplicationUser;
+                var username = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.Identity?.Name;
+                if (string.IsNullOrWhiteSpace(username))
+                    return Unauthorized("Invalid token");
 
+                var user = await _userManager.FindByNameAsync(username);
                 if (user == null)
                     return NotFound("User not found");
 
@@ -92,8 +95,11 @@ namespace Projectio.Controllers
         {
             try
             {
-                ApplicationUser user = HttpContext.Items["CurrentUser"] as ApplicationUser; ;
+                var username = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.Identity?.Name;
+                if (string.IsNullOrWhiteSpace(username))
+                    return Unauthorized("Invalid token");
 
+                var user = await _userManager.FindByNameAsync(username);
                 if (user == null)
                     return NotFound("User not found");
 

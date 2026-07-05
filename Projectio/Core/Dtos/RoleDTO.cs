@@ -2,7 +2,7 @@
 
 namespace Projectio.Core.Dtos
 {
-    public class RoleDTO
+    public class RoleDto
     {
 
         public string? Id { get; set; }
@@ -11,7 +11,7 @@ namespace Projectio.Core.Dtos
         public string? Name { get; set; }
     }
 
-    public class RoleINDTO : RoleDTO
+    public class RoleInDto : RoleDto
     {
     }
 

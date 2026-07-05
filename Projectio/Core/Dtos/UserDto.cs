@@ -35,4 +35,10 @@ namespace Projectio.Core.Dtos
         public string? LastName { get; set; }
         public string? Role { get; set; }
     }
+
+    public class GoogleTokenDto
+    {
+        [Required]
+        public string IdToken { get; set; } = string.Empty;
+    }
 }
