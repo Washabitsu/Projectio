@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/Logs/
+.git/
+.github/
+.agents/
+
+# Secrets never go into an image
+**/.env
