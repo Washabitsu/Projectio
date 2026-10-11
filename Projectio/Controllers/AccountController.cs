@@ -13,7 +13,6 @@ namespace Projectio.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [RequireHttps]
     public class AccountController : ControllerBase
     {
         private IMapper _mapper { get; set; }

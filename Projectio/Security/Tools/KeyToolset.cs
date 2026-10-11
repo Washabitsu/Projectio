@@ -1,19 +1,33 @@
 ﻿using Microsoft.IdentityModel.Tokens;
+using System.Buffers.Text;
+using System.Security.Cryptography;
 
 namespace Projectio.Security.Tools
 {
     public static class KeyToolset
     {
-        public static SecurityKey GetPublicKey(string privateKeyBase64)
+        public static RsaSecurityKey GetPublicKey(string privateKeyBase64)
         {
-            using var rsa = System.Security.Cryptography.RSA.Create();
+            using var rsa = RSA.Create();
             var privateKeyBytes = Convert.FromBase64String(privateKeyBase64);
             rsa.ImportPkcs8PrivateKey(privateKeyBytes, out _);
-            var publicKeyBytes = rsa.ExportSubjectPublicKeyInfo();
 
-            using var publicRsa = System.Security.Cryptography.RSA.Create();
-            publicRsa.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
-            return new Microsoft.IdentityModel.Tokens.RsaSecurityKey(publicRsa);    
+            // Export only the public part as plain parameters.
+            // Returning the RSA object itself would hand out an object that is disposed when this method ends
+            return new RsaSecurityKey(rsa.ExportParameters(includePrivateParameters: false))
+            {
+                KeyId = CreateKeyId(rsa)
+            };
+        }
+
+        /// <summary>
+        /// The "kid" of a key: a hash of its public part. The same key always gets the same id
+        /// and a new key gets a new one, so services can tell which key signed a token (key rotation)
+        /// </summary>
+        public static string CreateKeyId(RSA rsa)
+        {
+            var hash = SHA256.HashData(rsa.ExportSubjectPublicKeyInfo());
+            return Base64Url.EncodeToString(hash);
         }
     }
 }

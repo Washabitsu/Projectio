@@ -9,7 +9,6 @@ namespace Projectio.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [RequireHttps]
     [Authorize(Roles = "Admin")]
     public class AdminController : ControllerBase
     {
