@@ -17,15 +17,12 @@ namespace Projectio.Controllers
     {
         private IMapper _mapper { get; set; }
         private ApplicationDbContext _context { get; set; }
-        private readonly RoleManager<IdentityRole> _roleManager;
-
         private readonly UserManager<ApplicationUser> _userManager;
         public AccountController(ApplicationDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _context = context;
             _mapper = mapper;
             _userManager = userManager;
-            _roleManager = roleManager;
         }
 
         [HttpGet]
@@ -33,10 +30,12 @@ namespace Projectio.Controllers
         public async Task<IActionResult> Get()
         {
             var username = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.Identity?.Name;
+
             if (string.IsNullOrWhiteSpace(username))
                 return Unauthorized("Invalid token");
 
             var user = await _userManager.FindByNameAsync(username);
+
             if (user == null)
                 return NotFound("User not found");
 
@@ -63,6 +62,7 @@ namespace Projectio.Controllers
                     return Unauthorized("Invalid token");
 
                 var user = await _userManager.FindByNameAsync(username);
+
                 if (user == null)
                     return NotFound("User not found");
 

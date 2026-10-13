@@ -58,7 +58,7 @@ namespace Projectio.Controllers
 
                 return Ok("The user has been created succefully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return StatusCode(500, "Internal server error");
             }

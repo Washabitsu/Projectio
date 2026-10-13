@@ -2,7 +2,7 @@
 
 namespace Projectio.Core.Dtos
 {
-    public class LoginDto
+    public class OIDCDto
     {
         [Required]
         public string ExchangeCode { get; set; } = string.Empty;

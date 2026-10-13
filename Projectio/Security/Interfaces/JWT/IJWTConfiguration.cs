@@ -6,5 +6,6 @@
         IEnumerable<string> Audience { get; }
         string SigningKey { get; }
         int TokenTimeoutMinutes { get; }
+        int RefreshTokenTimeoutMinutes { get; }
     }
 }

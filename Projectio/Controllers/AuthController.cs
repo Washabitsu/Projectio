@@ -21,8 +21,6 @@ namespace Projectio.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private const int RefreshTokenDays = 7;
-
         private readonly IJWTConfiguration _jwtConfiguration;
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
@@ -44,7 +42,7 @@ namespace Projectio.Controllers
         /// </summary>
         [AllowAnonymous]
         [HttpPost("exchange")]
-        public async Task<ActionResult> Exchange(LoginDto dto)
+        public async Task<ActionResult> Exchange(OIDCDto dto)
         {
             var client = _clients.Validate(dto.ClientId, dto.ClientSecret);
             if (client == null)
@@ -142,7 +140,7 @@ namespace Projectio.Controllers
                 CreatedByIp = GetIp(),
                 CreatedByUserAgent = Request.Headers.UserAgent.ToString(),
                 Created = DateTimeOffset.UtcNow,
-                Expires = DateTimeOffset.UtcNow.AddDays(RefreshTokenDays)
+                Expires = DateTimeOffset.UtcNow.AddMinutes(_jwtConfiguration.RefreshTokenTimeoutMinutes)
             });
 
             return new TokenDto

@@ -14,9 +14,9 @@ using Projectio.Persistence;
 using Projectio.Security.Authorization.OAuthProvider;
 using Projectio.Security.Authorization.OAuthSetting;
 using Projectio.Security.Interfaces.JWT;
-using Projectio.Security.Interfaces.OAuth;
+using Projectio.Security.Interfaces.OAuth.OAuthSettngs.Google;
 using Projectio.Security.Tools;
-using System.IdentityModel.Tokens.Jwt; 
+using System.IdentityModel.Tokens.Jwt;
 
 DotNetEnv.Env.NoClobber().Load(".env");
 
@@ -30,18 +30,20 @@ if(connectionString == null)
     throw new InvalidOperationException("Connection string is not configured properly. Please check the appsettings.json file.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(x => x.UseSqlServer(connectionString));
+
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
+
+
 builder.Services.AddSwaggerGen((options) =>
 {
-    options.AddSecurityDefinition(name: "Bearer", securityScheme: new OpenApiSecurityScheme
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Name = "Authorization",
-        Description = "Enter the Bearer Authorization string as following: `Bearer Generated-JWT-Token`",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Paste only the access token. Swagger adds the word Bearer itself."
     });
 });
 
@@ -54,16 +56,15 @@ var jwtConfig = builder.Configuration.GetSection("Jwt").Get<JWTConfiguration>()
 
 builder.Services.AddSingleton<IJWTConfiguration>(jwtConfig);
 
-
 var gOAuthSettings = builder.Configuration.GetSection("Google").Get<GoogleSettings>()
     ?? throw new InvalidOperationException("Google OAuth settings are not configured properly.");
+
 var keys = typeof(GoogleSettings).GetProperties();
 foreach (var key in keys)
     if (string.IsNullOrEmpty(key.GetValue(gOAuthSettings)?.ToString()))
         throw new Exception($"Google OAuth settings are not configured properly. Missing value for {key.Name}.");
 
 builder.Services.AddSingleton<IGoogleSettings>(gOAuthSettings);
-builder.Services.AddSingleton<IOAuthProvider, GoogleProvider>();
 
 // Applications that may log users in through Projectio (e.g. the Portio BFF)
 var clients = builder.Configuration.GetSection("Clients").Get<List<OAuthClient>>()
@@ -129,7 +130,6 @@ builder.Services.AddAuthentication(options =>
         RoleClaimType = "role"
     };
 })
-.AddCookie()
 .AddGoogleOpenIdConnect(options =>
 {
     options.ClientId = gOAuthSettings.ClientId;
@@ -166,6 +166,7 @@ app.UseCookiePolicy();
 var behindProxy = string.Equals(builder.Configuration["ForwardedHeaders_Enabled"], "true", StringComparison.OrdinalIgnoreCase);
 if (!behindProxy)
     app.UseHttpsRedirection();
+
 app.UseRouting();
 // Only our own frontend may call the API from a browser
 app.UseCors(x => x.WithOrigins(frontendUrl).AllowAnyMethod().AllowAnyHeader());

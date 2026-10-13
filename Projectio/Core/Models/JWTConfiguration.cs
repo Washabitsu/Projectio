@@ -8,5 +8,6 @@ namespace Projectio.Core.Models
         public IEnumerable<string> Audience { get; set; }
         public string SigningKey { get; set; }
         public int TokenTimeoutMinutes { get; set; }
+        public int RefreshTokenTimeoutMinutes { get; set; }
     }
 }
