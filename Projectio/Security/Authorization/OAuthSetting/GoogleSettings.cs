@@ -1,4 +1,4 @@
-﻿using Projectio.Security.Interfaces.OAuth;
+﻿using Projectio.Security.Interfaces.OAuth.OAuthSettngs.Google;
 
 namespace Projectio.Security.Authorization.OAuthSetting
 {
@@ -11,5 +11,6 @@ namespace Projectio.Security.Authorization.OAuthSetting
         public string AuthProviderX509CertUrl { get; set; }
         public string ClientSecret { get; set; }
         public string[] RedirectUris { get; set; }
+        public string[] Scope { get; set; }
     }
 }

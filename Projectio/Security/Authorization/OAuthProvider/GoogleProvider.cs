@@ -2,7 +2,8 @@
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Microsoft.AspNetCore.Authentication;
-using Projectio.Security.Interfaces.OAuth;
+using Projectio.Security.Interfaces.OAuth.OAuthProvider;
+using Projectio.Security.Interfaces.OAuth.OAuthSettngs.Google;
 
 namespace Projectio.Security.Authorization.OAuthProvider
 {
@@ -15,9 +16,6 @@ namespace Projectio.Security.Authorization.OAuthProvider
             Settings = settings;
         }
 
-        public Task ConfigureAuthentication(AuthenticationBuilder builder)
-        {
-            throw new NotImplementedException();
-        }
+       
     }
 }
